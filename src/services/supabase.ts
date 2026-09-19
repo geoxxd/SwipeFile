@@ -245,9 +245,10 @@ export const supabaseService = {
   // Offers
   async getOffers(params?: Record<string, any>): Promise<Offer[]> {
     if (!supabase) throw new Error('Supabase client não inicializado.');
+
     let query = supabase
       .from('offers')
-      .select('*, creatives(*), competitors(*), funnel_steps(*), validation_logs(*)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (params?.status && params.status !== 'todos') {
@@ -260,10 +261,102 @@ export const supabaseService = {
       query = query.eq('is_favorite', true);
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    const { data: offersData, error: offersError } = await query;
+    if (offersError) {
+      console.error('Erro ao consultar offers no Supabase:', offersError);
+      throw new Error(offersError.message);
+    }
 
-    let offers = (data || []).map((row) => mapOfferFromDb(row));
+    if (!offersData || offersData.length === 0) {
+      return [];
+    }
+
+    const offerIds = offersData.map((o: any) => o.id);
+
+    // Carregar criativos da tabela 'creatives'
+    const creativesByOffer: Record<string, Creative[]> = {};
+    try {
+      const { data: crData, error: crError } = await supabase
+        .from('creatives')
+        .select('*')
+        .in('offer_id', offerIds)
+        .order('created_at', { ascending: false });
+
+      if (!crError && crData) {
+        crData.forEach((cRow: any) => {
+          const cr = mapCreativeFromDb(cRow);
+          if (!creativesByOffer[cr.offerId]) {
+            creativesByOffer[cr.offerId] = [];
+          }
+          creativesByOffer[cr.offerId].push(cr);
+        });
+      }
+    } catch (e) {
+      console.warn('Tabela creatives indisponível ou vazia:', e);
+    }
+
+    // Carregamento resiliente de tabelas opcionais (não bloqueia se não existirem)
+    const competitorsByOffer: Record<string, Competitor[]> = {};
+    try {
+      const { data: compData } = await supabase
+        .from('competitors')
+        .select('*')
+        .in('offer_id', offerIds);
+      if (compData) {
+        compData.forEach((row: any) => {
+          const c = mapCompetitorFromDb(row);
+          if (!competitorsByOffer[c.offerId]) competitorsByOffer[c.offerId] = [];
+          competitorsByOffer[c.offerId].push(c);
+        });
+      }
+    } catch {
+      // Tabela opcional não criada
+    }
+
+    const funnelByOffer: Record<string, FunnelStep[]> = {};
+    try {
+      const { data: fData } = await supabase
+        .from('funnel_steps')
+        .select('*')
+        .in('offer_id', offerIds)
+        .order('order_num', { ascending: true });
+      if (fData) {
+        fData.forEach((row: any) => {
+          const s = mapFunnelStepFromDb(row);
+          if (!funnelByOffer[s.offerId]) funnelByOffer[s.offerId] = [];
+          funnelByOffer[s.offerId].push(s);
+        });
+      }
+    } catch {
+      // Tabela opcional não criada
+    }
+
+    const logsByOffer: Record<string, ValidationLog[]> = {};
+    try {
+      const { data: valData } = await supabase
+        .from('validation_logs')
+        .select('*')
+        .in('offer_id', offerIds)
+        .order('date', { ascending: false });
+      if (valData) {
+        valData.forEach((row: any) => {
+          const v = mapValidationLogFromDb(row);
+          if (!logsByOffer[v.offerId]) logsByOffer[v.offerId] = [];
+          logsByOffer[v.offerId].push(v);
+        });
+      }
+    } catch {
+      // Tabela opcional não criada
+    }
+
+    let offers = offersData.map((row) =>
+      mapOfferFromDb(row, {
+        creatives: creativesByOffer[row.id] || [],
+        competitors: competitorsByOffer[row.id] || [],
+        funnelSteps: funnelByOffer[row.id] || [],
+        validationLogs: logsByOffer[row.id] || []
+      })
+    );
 
     if (params?.search) {
       const s = String(params.search).toLowerCase();
@@ -280,14 +373,63 @@ export const supabaseService = {
 
   async getOfferById(id: string): Promise<Offer> {
     if (!supabase) throw new Error('Supabase client não inicializado.');
-    const { data, error } = await supabase
+    const { data: offerData, error } = await supabase
       .from('offers')
-      .select('*, creatives(*), competitors(*), funnel_steps(*), validation_logs(*)')
+      .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw new Error(error.message);
-    return mapOfferFromDb(data);
+
+    let creatives: Creative[] = [];
+    try {
+      const { data: crData } = await supabase
+        .from('creatives')
+        .select('*')
+        .eq('offer_id', id)
+        .order('created_at', { ascending: false });
+      if (crData) {
+        creatives = crData.map(mapCreativeFromDb);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar criativos:', e);
+    }
+
+    let competitors: Competitor[] = [];
+    try {
+      const { data: compData } = await supabase
+        .from('competitors')
+        .select('*')
+        .eq('offer_id', id);
+      if (compData) competitors = compData.map(mapCompetitorFromDb);
+    } catch {}
+
+    let funnelSteps: FunnelStep[] = [];
+    try {
+      const { data: fData } = await supabase
+        .from('funnel_steps')
+        .select('*')
+        .eq('offer_id', id)
+        .order('order_num', { ascending: true });
+      if (fData) funnelSteps = fData.map(mapFunnelStepFromDb);
+    } catch {}
+
+    let validationLogs: ValidationLog[] = [];
+    try {
+      const { data: valData } = await supabase
+        .from('validation_logs')
+        .select('*')
+        .eq('offer_id', id)
+        .order('date', { ascending: false });
+      if (valData) validationLogs = valData.map(mapValidationLogFromDb);
+    } catch {}
+
+    return mapOfferFromDb(offerData, {
+      creatives,
+      competitors,
+      funnelSteps,
+      validationLogs
+    });
   },
 
   async createOffer(offerData: Partial<Offer>): Promise<Offer> {
@@ -485,9 +627,16 @@ export const supabaseService = {
   // Collections
   async getCollections(): Promise<Collection[]> {
     if (!supabase) throw new Error('Supabase client não inicializado.');
-    const { data, error } = await supabase.from('collections').select('*').order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data || []).map(mapCollectionFromDb);
+    try {
+      const { data, error } = await supabase.from('collections').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.warn('Tabela collections não acessível:', error.message);
+        return [];
+      }
+      return (data || []).map(mapCollectionFromDb);
+    } catch {
+      return [];
+    }
   },
 
   async getCollectionById(id: string): Promise<Collection> {
@@ -582,8 +731,31 @@ export const supabaseService = {
     ];
 
     if (!supabase) throw new Error('Supabase client não inicializado.');
-    const { data, error } = await supabase.from('settings').select('*').eq('id', 'default').single();
-    if (error || !data) {
+    try {
+      const { data, error } = await supabase.from('settings').select('*').eq('id', 'default').single();
+      if (error || !data) {
+        return {
+          appName: 'SWIPE',
+          shareMode: 'public',
+          accessCode: '1234',
+          uploadSizeLimitMB: 500,
+          niches: ['Saúde & Emagrecimento', 'Renda Extra & Finanças', 'Relacionamentos', 'Desenvolvimento Pessoal', 'Negócios & Vendas', 'Estética & Beleza', 'Tecnologia & IA', 'Outros'],
+          trafficChannels: defaultChannels,
+          offerTypes: defaultOfferTypes,
+          funnelTypes: defaultFunnelTypes
+        };
+      }
+      return {
+        appName: data.app_name || 'SWIPE',
+        shareMode: data.share_mode || 'public',
+        accessCode: data.access_code || '1234',
+        uploadSizeLimitMB: data.upload_size_limit_mb || 500,
+        niches: data.niches || ['Saúde & Emagrecimento', 'Renda Extra & Finanças', 'Relacionamentos', 'Desenvolvimento Pessoal', 'Negócios & Vendas', 'Estética & Beleza', 'Tecnologia & IA', 'Outros'],
+        trafficChannels: defaultChannels,
+        offerTypes: defaultOfferTypes,
+        funnelTypes: defaultFunnelTypes
+      };
+    } catch {
       return {
         appName: 'SWIPE',
         shareMode: 'public',
@@ -595,16 +767,6 @@ export const supabaseService = {
         funnelTypes: defaultFunnelTypes
       };
     }
-    return {
-      appName: data.app_name || 'SWIPE',
-      shareMode: data.share_mode || 'public',
-      accessCode: data.access_code || '1234',
-      uploadSizeLimitMB: data.upload_size_limit_mb || 500,
-      niches: data.niches || ['Saúde & Emagrecimento', 'Renda Extra & Finanças', 'Relacionamentos', 'Desenvolvimento Pessoal', 'Negócios & Vendas', 'Estética & Beleza', 'Tecnologia & IA', 'Outros'],
-      trafficChannels: defaultChannels,
-      offerTypes: defaultOfferTypes,
-      funnelTypes: defaultFunnelTypes
-    };
   },
 
   async updateSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
@@ -630,14 +792,8 @@ export const supabaseService = {
     totalCollections: number;
   }> {
     if (!supabase) throw new Error('Supabase client não inicializado.');
-    const [offersRes, creativesRes, competitorsRes, collectionsRes] = await Promise.all([
-      supabase.from('offers').select('status'),
-      supabase.from('creatives').select('id', { count: 'exact', head: true }),
-      supabase.from('competitors').select('id', { count: 'exact', head: true }),
-      supabase.from('collections').select('id', { count: 'exact', head: true })
-    ]);
 
-    const offers = offersRes.data || [];
+    let totalOffers = 0;
     const statusCounts: Record<string, number> = {
       validada: 0,
       em_teste: 0,
@@ -645,18 +801,45 @@ export const supabaseService = {
       pausada: 0,
       morta: 0
     };
-    offers.forEach((o) => {
-      if (statusCounts[o.status] !== undefined) {
-        statusCounts[o.status]++;
+
+    try {
+      const { data: offersData } = await supabase.from('offers').select('status');
+      if (offersData) {
+        totalOffers = offersData.length;
+        offersData.forEach((o: any) => {
+          if (statusCounts[o.status] !== undefined) {
+            statusCounts[o.status]++;
+          }
+        });
       }
-    });
+    } catch (e) {
+      console.warn('Erro ao ler status em offers:', e);
+    }
+
+    let totalCreatives = 0;
+    try {
+      const { count } = await supabase.from('creatives').select('id', { count: 'exact', head: true });
+      totalCreatives = count || 0;
+    } catch {}
+
+    let totalCompetitors = 0;
+    try {
+      const { count } = await supabase.from('competitors').select('id', { count: 'exact', head: true });
+      totalCompetitors = count || 0;
+    } catch {}
+
+    let totalCollections = 0;
+    try {
+      const { count } = await supabase.from('collections').select('id', { count: 'exact', head: true });
+      totalCollections = count || 0;
+    } catch {}
 
     return {
-      totalOffers: offers.length,
+      totalOffers,
       statusCounts,
-      totalCreatives: creativesRes.count || 0,
-      totalCompetitors: competitorsRes.count || 0,
-      totalCollections: collectionsRes.count || 0
+      totalCreatives,
+      totalCompetitors,
+      totalCollections
     };
   },
 

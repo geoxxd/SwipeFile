@@ -71,7 +71,16 @@ function MainApp() {
 
   // App Data State
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offers, setOffers] = useState<Offer[]>(() => {
+    try {
+      const cached = localStorage.getItem('swipe_cached_offers');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [isOwner, setIsOwner] = useState<boolean>(true); // Default true for owner experience
@@ -88,20 +97,30 @@ function MainApp() {
     try {
       const [settingsRes, offersRes, collectionsRes, statsRes] = await Promise.all([
         api.getSettings().catch(() => DEFAULT_SETTINGS),
-        api.getOffers().catch(() => []),
+        api.getOffers().catch((err) => {
+          console.error('Falha ao sincronizar ofertas do Supabase:', err);
+          return null;
+        }),
         api.getCollections().catch(() => []),
         api.getStats().catch(() => null)
       ]);
 
       if (settingsRes) setSettings(settingsRes);
-      if (offersRes) setOffers(offersRes);
+      
+      if (offersRes !== null) {
+        setOffers(offersRes);
+        try {
+          localStorage.setItem('swipe_cached_offers', JSON.stringify(offersRes));
+        } catch {}
+      }
+
       if (collectionsRes) setCollections(collectionsRes);
       if (statsRes) setStats(statsRes);
 
       // Check URL parameters for direct offer link
       const urlParams = new URLSearchParams(window.location.search);
       const urlOfferId = urlParams.get('offer');
-      if (urlOfferId && offersRes.some((o: Offer) => o.id === urlOfferId)) {
+      if (urlOfferId && offersRes && offersRes.some((o: Offer) => o.id === urlOfferId)) {
         setSelectedOfferId(urlOfferId);
         setCurrentView('offer-detail');
       }
@@ -159,14 +178,22 @@ function MainApp() {
       if (editingOffer) {
         const updated = await api.updateOffer(editingOffer.id, data);
         if (updated) {
-          setOffers((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          setOffers((prev) => {
+            const next = prev.map((o) => (o.id === updated.id ? updated : o));
+            try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+            return next;
+          });
           success('Oferta atualizada com sucesso!');
           setSelectedOfferId(updated.id);
           setCurrentView('offer-detail');
         }
       } else {
         const created = await api.createOffer(data);
-        setOffers((prev) => [created, ...prev]);
+        setOffers((prev) => {
+          const next = [created, ...prev];
+          try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+          return next;
+        });
         success('Nova oferta cadastrada com sucesso!');
         setSelectedOfferId(created.id);
         setCurrentView('offer-detail');
@@ -183,7 +210,11 @@ function MainApp() {
   const handleDeleteOffer = async (id: string) => {
     try {
       await api.deleteOffer(id);
-      setOffers((prev) => prev.filter((o) => o.id !== id));
+      setOffers((prev) => {
+        const next = prev.filter((o) => o.id !== id);
+        try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+        return next;
+      });
       success('Oferta excluída com sucesso.');
       handleBackToLibrary();
       api.getStats().then((s) => setStats(s)).catch(() => {});
@@ -196,9 +227,11 @@ function MainApp() {
   const handleToggleFavorite = async (id: string) => {
     try {
       const res = await api.toggleFavorite(id);
-      setOffers((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, isFavorite: res.isFavorite } : o))
-      );
+      setOffers((prev) => {
+        const next = prev.map((o) => (o.id === id ? { ...o, isFavorite: res.isFavorite } : o));
+        try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+        return next;
+      });
     } catch (err: any) {
       error(err.message || 'Erro ao alternar favorito.');
     }
@@ -206,7 +239,11 @@ function MainApp() {
 
   // Update offer in memory
   const handleUpdateOfferInMemory = (updated: Offer) => {
-    setOffers((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+    setOffers((prev) => {
+      const next = prev.map((o) => (o.id === updated.id ? updated : o));
+      try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   // Selected Offer reference
@@ -346,7 +383,11 @@ function MainApp() {
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
         onCreated={(newOffer) => {
-          setOffers((prev) => [newOffer, ...prev]);
+          setOffers((prev) => {
+            const next = [newOffer, ...prev];
+            try { localStorage.setItem('swipe_cached_offers', JSON.stringify(next)); } catch {}
+            return next;
+          });
           setSelectedOfferId(newOffer.id);
           setCurrentView('offer-detail');
           api.getStats().then((s) => setStats(s)).catch(() => {});
