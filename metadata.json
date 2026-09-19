@@ -1,0 +1,6 @@
+{
+  "name": "SWIPE - Swipe File de Ofertas",
+  "description": "Swipe file pessoal para guardar, analisar e modelar ofertas validadas de marketing digital.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
