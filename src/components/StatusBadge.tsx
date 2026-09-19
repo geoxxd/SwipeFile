@@ -13,10 +13,10 @@ export const statusConfig: Record<
 > = {
   validada: {
     label: 'Validada',
-    color: 'text-[#22C55E]',
-    bg: 'bg-[#22C55E]/10',
-    border: 'border-[#22C55E]/30',
-    dot: 'bg-[#22C55E]'
+    color: 'text-[#00A63E]',
+    bg: 'bg-[#00A63E]/15',
+    border: 'border-[#00A63E]/40',
+    dot: 'bg-[#00A63E]'
   },
   em_teste: {
     label: 'Em teste',
@@ -27,16 +27,16 @@ export const statusConfig: Record<
   },
   escalando: {
     label: 'Escalando',
-    color: 'text-[#84CC16]',
-    bg: 'bg-[#84CC16]/10',
-    border: 'border-[#84CC16]/30',
-    dot: 'bg-[#84CC16]'
+    color: 'text-[#00C84B]',
+    bg: 'bg-[#00A63E]/20',
+    border: 'border-[#00A63E]/50',
+    dot: 'bg-[#00C84B]'
   },
   pausada: {
     label: 'Pausada',
     color: 'text-[#9CA3AF]',
-    bg: 'bg-[#374151]/30',
-    border: 'border-[#4B5563]/30',
+    bg: 'bg-[#262A26]',
+    border: 'border-[#3A403A]/40',
     dot: 'bg-[#9CA3AF]'
   },
   morta: {

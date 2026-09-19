@@ -190,13 +190,13 @@ export function OfferDetailView({
             {/* Badges row */}
             <div className="flex flex-wrap items-center gap-2 mb-2.5">
               <StatusBadge status={offer.status} size="md" />
-              <span className="px-2.5 py-0.5 rounded-md bg-[#182018] text-[#22C55E] text-xs font-medium border border-[#22C55E]/20">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#091F0E] text-[#00A63E] text-xs font-medium border border-[#00A63E]/30">
                 {offer.niche}
               </span>
-              <span className="px-2.5 py-0.5 rounded-md bg-[#161B16] text-[#A3E635] text-xs font-medium border border-[#A3E635]/20 uppercase">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#141814] text-[#00C84B] text-xs font-medium border border-[#00A63E]/20 uppercase">
                 {offer.offerType} • {offer.funnelType}
               </span>
-              <span className="px-2.5 py-0.5 rounded-md bg-[#161B16] text-[#9CA3AF] text-xs font-medium border border-[#1F2A1F]">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#141814] text-[#9CA3AF] text-xs font-medium border border-[#191C19]">
                 {offer.country} ({offer.language})
               </span>
             </div>
@@ -215,17 +215,17 @@ export function OfferDetailView({
           </div>
 
           {/* Key Metrics Quick Box */}
-          <div className="flex items-center gap-4 bg-[#0A0D0A] p-3.5 rounded-xl border border-[#1F2A1F] shrink-0 self-start">
-            <div className="flex flex-col items-center px-3 border-r border-[#1F2A1F]">
+          <div className="flex items-center gap-4 bg-[#000000] p-3.5 rounded-xl border border-[#191C19] shrink-0 self-start">
+            <div className="flex flex-col items-center px-3 border-r border-[#191C19]">
               <span className="text-[10px] text-[#9CA3AF] uppercase tracking-wider font-medium">
                 Ads Ativos
               </span>
-              <span className="text-xl font-extrabold text-[#22C55E] font-mono-num flex items-center gap-1 mt-0.5">
-                <Flame className="w-4 h-4 fill-[#22C55E]" />
+              <span className="text-xl font-extrabold text-[#00A63E] font-mono-num flex items-center gap-1 mt-0.5">
+                <Flame className="w-4 h-4 fill-[#00A63E]" />
                 {offer.activeAdsCurrent || 0}
               </span>
             </div>
-            <div className="flex flex-col items-center px-3 border-r border-[#1F2A1F]">
+            <div className="flex flex-col items-center px-3 border-r border-[#191C19]">
               <span className="text-[10px] text-[#9CA3AF] uppercase tracking-wider font-medium">
                 Dias Ativa
               </span>
@@ -254,11 +254,11 @@ export function OfferDetailView({
 
         {/* Tags bar */}
         {offer.tags && offer.tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[#1F2A1F]">
+          <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[#191C19]">
             {offer.tags.map((tag) => (
               <span
                 key={tag}
-                className="px-2.5 py-0.5 text-xs rounded-lg bg-[#182018] text-[#9CA3AF] border border-[#1F2A1F]"
+                className="px-2.5 py-0.5 text-xs rounded-lg bg-[#071207] text-[#9CA3AF] border border-[#191C19]"
               >
                 #{tag}
               </span>
@@ -268,7 +268,7 @@ export function OfferDetailView({
       </div>
 
       {/* Tabs Navigation Bar */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#1F2A1F] pb-px">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#191C19] pb-px">
         {[
           { id: 'visao_geral', label: 'Visão Geral' },
           { id: 'analise', label: 'Análise & Copy' },
@@ -285,8 +285,8 @@ export function OfferDetailView({
               onClick={() => setActiveTab(tab.id as any)}
               className={`px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all whitespace-nowrap border-b-2 ${
                 isActive
-                  ? 'border-[#22C55E] text-[#22C55E] bg-[#111411]'
-                  : 'border-transparent text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#111411]/50'
+                  ? 'border-[#00A63E] text-[#00A63E] bg-[#0C0D0C]'
+                  : 'border-transparent text-[#9CA3AF] hover:text-[#F3F4F6] hover:bg-[#0C0D0C]/60'
               }`}
             >
               {tab.label}
