@@ -73,6 +73,8 @@ export function OfferDetailView({
   const [showAddCompetitor, setShowAddCompetitor] = useState(false);
   const [showAddCreative, setShowAddCreative] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditCopyModal, setShowEditCopyModal] = useState(false);
+  const [editingCreative, setEditingCreative] = useState<Creative | null>(null);
 
   // Link copy state
   const [copiedLink, setCopiedLink] = useState(false);
@@ -528,90 +530,229 @@ export function OfferDetailView({
 
       {/* TAB CONTENT 2: ANÁLISE & COPY */}
       {activeTab === 'analise' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gancho / Hook */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> Gancho / Hook Principal
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap font-medium">
-              {offer.hook || 'Nenhum gancho registrado.'}
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#22C55E]" />
+                Análise de Copy & Mecanismos
+              </h3>
+              <p className="text-xs text-[#22C55E]/80">
+                Preencha ou edite os ganchos, promessas, mecanismo único e elementos de conversão a qualquer momento.
+              </p>
+            </div>
+            {isOwner && (
+              <button
+                onClick={() => setShowEditCopyModal(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#4ADE80] text-black font-bold text-xs transition-all shadow-[0_0_15px_rgba(34,197,94,0.25)] hover:shadow-[0_0_20px_rgba(34,197,94,0.45)]"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Editar Análise & Copy</span>
+              </button>
+            )}
           </div>
 
-          {/* Headline */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
-              Headline da Página
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.headline || 'Nenhuma headline registrada.'}
-            </p>
-          </div>
-
-          {/* Promessa Principal */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#3B82F6] uppercase tracking-wider">
-              Promessa Principal (Big Promise)
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.mainPromise || 'Não informada.'}
-            </p>
-          </div>
-
-          {/* Mecanismo Único */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#A855F7] uppercase tracking-wider">
-              Mecanismo Único (Unique Mechanism)
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.uniqueMechanism || 'Não informado.'}
-            </p>
-          </div>
-
-          {/* Público-alvo */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-              Público-Alvo & Dores Mapeadas
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.targetAudience || 'Não informado.'}
-            </p>
-          </div>
-
-          {/* Provas Usadas */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-              Provas & Elementos de Credibilidade
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.proofsUsed || 'Não informadas.'}
-            </p>
-          </div>
-
-          {/* Bônus */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-              Bônus Ofertados
-            </span>
-            <p className="text-sm text-[#E5E7EB] leading-relaxed whitespace-pre-wrap">
-              {offer.bonuses || 'Nenhum bônus listado.'}
-            </p>
-          </div>
-
-          {/* Garantia & CTA */}
-          <div className="p-5 rounded-2xl bg-[#111411] border border-[#1F2A1F] flex flex-col gap-2">
-            <span className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
-              Garantia & Chamada para Ação (CTA)
-            </span>
-            <div className="flex flex-col gap-2 text-sm text-[#E5E7EB]">
-              <div>
-                <span className="text-xs text-[#6B7280] block">Garantia:</span>
-                {offer.guarantee || 'Padrão 7 dias.'}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Gancho / Hook */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Gancho / Hook Principal
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
               </div>
-              <div className="pt-2 border-t border-[#1F2A1F]">
-                <span className="text-xs text-[#6B7280] block">CTA Final:</span>
-                <span className="text-[#22C55E] font-medium">{offer.cta || 'Não informado.'}</span>
+              <p className="text-sm text-white leading-relaxed whitespace-pre-wrap font-medium">
+                {offer.hook || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Nenhum gancho registrado. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Headline */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Headline da Página
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.headline || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Nenhuma headline registrada. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Promessa Principal */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Promessa Principal (Big Promise)
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.mainPromise || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Não informada. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Mecanismo Único */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Mecanismo Único (Unique Mechanism)
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.uniqueMechanism || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Não informado. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Público-alvo */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Público-Alvo & Dores Mapeadas
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.targetAudience || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Não informado. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Provas Usadas */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Provas & Elementos de Credibilidade
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.proofsUsed || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Não informadas. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Bônus */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Bônus Ofertados
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-[#ECFDF5] leading-relaxed whitespace-pre-wrap">
+                {offer.bonuses || (
+                  <span className="text-[#22C55E]/50 italic">
+                    Nenhum bônus listado. Clique em "Editar" para adicionar.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Garantia & CTA */}
+            <div className="p-5 rounded-2xl bg-[#0D120D] border border-[#1F2A1F] hover:border-[#22C55E]/40 flex flex-col gap-2 relative group transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#22C55E] uppercase tracking-wider">
+                  Garantia & Chamada para Ação (CTA)
+                </span>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowEditCopyModal(true)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#22C55E] hover:text-[#4ADE80] opacity-80 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Edit className="w-3 h-3" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 text-sm text-[#ECFDF5]">
+                <div>
+                  <span className="text-xs text-[#22C55E]/70 block">Garantia:</span>
+                  {offer.guarantee || 'Padrão 7 dias.'}
+                </div>
+                <div className="pt-2 border-t border-[#1F2A1F]">
+                  <span className="text-xs text-[#22C55E]/70 block">CTA Final:</span>
+                  <span className="text-[#22C55E] font-bold">{offer.cta || 'Não informado.'}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -770,29 +911,42 @@ export function OfferDetailView({
                       </div>
                     </div>
 
-                    <div className="p-4 pt-0 flex items-center justify-between text-xs text-[#6B7280]">
+                    <div className="p-4 pt-0 flex items-center justify-between text-xs text-[#22C55E]/70">
                       <span className="font-mono-num">
                         {new Date(cr.createdAt).toLocaleDateString('pt-BR')}
                       </span>
                       {isOwner && (
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await api.deleteCreative(cr.id);
-                              onUpdateOffer({
-                                ...offer,
-                                creatives: offer.creatives?.filter((c) => c.id !== cr.id)
-                              });
-                              success('Criativo excluído.');
-                            } catch {
-                              error('Erro ao excluir criativo.');
-                            }
-                          }}
-                          className="p-1 text-[#6B7280] hover:text-[#EF4444] rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingCreative(cr);
+                            }}
+                            className="p-1.5 text-[#22C55E] hover:text-black hover:bg-[#22C55E] rounded-lg transition-colors"
+                            title="Editar Criativo, Análise & Copy"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await api.deleteCreative(cr.id);
+                                onUpdateOffer({
+                                  ...offer,
+                                  creatives: offer.creatives?.filter((c) => c.id !== cr.id)
+                                });
+                                success('Criativo excluído.');
+                              } catch {
+                                error('Erro ao excluir criativo.');
+                              }
+                            }}
+                            className="p-1.5 text-[#22C55E]/60 hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors"
+                            title="Excluir Criativo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1070,7 +1224,11 @@ export function OfferDetailView({
       {/* Media Player Modal */}
       <MediaPlayerModal
         creative={selectedCreative}
+        isOwner={isOwner}
         onClose={() => setSelectedCreative(null)}
+        onEdit={(cr) => {
+          setEditingCreative(cr);
+        }}
       />
 
       {/* Delete Confirmation Modal */}
@@ -1085,6 +1243,31 @@ export function OfferDetailView({
         }}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+
+      {/* Add Funnel Step Modal */}
+      {showEditCopyModal && (
+        <EditCopyModal
+          offer={offer}
+          onClose={() => setShowEditCopyModal(false)}
+          onUpdated={(updated) => onUpdateOffer(updated)}
+        />
+      )}
+
+      {editingCreative && (
+        <EditCreativeModal
+          creative={editingCreative}
+          onClose={() => setEditingCreative(null)}
+          onUpdated={(updatedCr) => {
+            const newCreatives = (offer.creatives || []).map((c) =>
+              c.id === updatedCr.id ? updatedCr : c
+            );
+            onUpdateOffer({ ...offer, creatives: newCreatives });
+            if (selectedCreative?.id === updatedCr.id) {
+              setSelectedCreative(updatedCr);
+            }
+          }}
+        />
+      )}
 
       {/* Add Funnel Step Modal */}
       {showAddFunnel && (
@@ -1872,6 +2055,370 @@ function AddCreativeModal({
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>{loading ? 'Salvando...' : 'Salvar Criativo'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditCopyModal({
+  offer,
+  onClose,
+  onUpdated
+}: {
+  offer: Offer;
+  onClose: () => void;
+  onUpdated: (updated: Offer) => void;
+}) {
+  const { success, error } = useToast();
+  const [hook, setHook] = useState(offer.hook || '');
+  const [headline, setHeadline] = useState(offer.headline || '');
+  const [mainPromise, setMainPromise] = useState(offer.mainPromise || '');
+  const [uniqueMechanism, setUniqueMechanism] = useState(offer.uniqueMechanism || '');
+  const [targetAudience, setTargetAudience] = useState(offer.targetAudience || '');
+  const [proofsUsed, setProofsUsed] = useState(offer.proofsUsed || '');
+  const [bonuses, setBonuses] = useState(offer.bonuses || '');
+  const [guarantee, setGuarantee] = useState(offer.guarantee || '');
+  const [cta, setCta] = useState(offer.cta || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const updated = await api.updateOffer(offer.id, {
+        hook: hook.trim() || undefined,
+        headline: headline.trim() || undefined,
+        mainPromise: mainPromise.trim() || undefined,
+        uniqueMechanism: uniqueMechanism.trim() || undefined,
+        targetAudience: targetAudience.trim() || undefined,
+        proofsUsed: proofsUsed.trim() || undefined,
+        bonuses: bonuses.trim() || undefined,
+        guarantee: guarantee.trim() || undefined,
+        cta: cta.trim() || undefined
+      });
+      if (updated) {
+        onUpdated(updated);
+        success('Análise de copy e mecanismos salva com sucesso!');
+        onClose();
+      }
+    } catch (err: any) {
+      error(err.message || 'Erro ao atualizar análise de copy.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-[#0D120D] border border-[#1F2A1F] rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 text-[#22C55E]/70 hover:text-[#22C55E]">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="w-4 h-4 text-[#22C55E]" />
+          <h3 className="text-base font-bold text-white">Editar Análise & Copy da Oferta</h3>
+        </div>
+        <p className="text-xs text-[#22C55E]/70 mb-4">
+          Preencha ou ajuste os dados da copy a qualquer momento.
+        </p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Gancho / Hook Principal</label>
+            <textarea
+              rows={2}
+              placeholder="Ex.: Como secar em 21 dias com o ritual matinal..."
+              value={hook}
+              onChange={(e) => setHook(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Headline da Página</label>
+            <textarea
+              rows={2}
+              placeholder="Ex.: Descubra o Segredo Revelado por Médicos de Harvard..."
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Promessa Principal (Big Promise)</label>
+              <textarea
+                rows={3}
+                placeholder="Ex.: Elimine até 8kg em 30 dias sem academia..."
+                value={mainPromise}
+                onChange={(e) => setMainPromise(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Mecanismo Único</label>
+              <textarea
+                rows={3}
+                placeholder="Ex.: Ativação do hormônio leptina através da infusão..."
+                value={uniqueMechanism}
+                onChange={(e) => setUniqueMechanism(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Público-Alvo & Dores Mapeadas</label>
+            <textarea
+              rows={2}
+              placeholder="Ex.: Mulheres 35+ com metabolismo lento que já tentaram dietas..."
+              value={targetAudience}
+              onChange={(e) => setTargetAudience(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Provas & Credibilidade</label>
+            <textarea
+              rows={2}
+              placeholder="Ex.: 3 estudos clínicos citados, prints de WhatsApp, antes e depois..."
+              value={proofsUsed}
+              onChange={(e) => setProofsUsed(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Bônus Ofertados</label>
+            <textarea
+              rows={2}
+              placeholder="Ex.: Bônus 1: Guia de Chás; Bônus 2: Comunidade VIP..."
+              value={bonuses}
+              onChange={(e) => setBonuses(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Garantia</label>
+              <input
+                type="text"
+                placeholder="Ex.: 30 dias incondicional"
+                value={guarantee}
+                onChange={(e) => setGuarantee(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Chamada para Ação (CTA)</label>
+              <input
+                type="text"
+                placeholder="Ex.: Quero Garantir Minha Vaga com 50% OFF"
+                value={cta}
+                onChange={(e) => setCta(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-[#1F2A1F]">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-[#22C55E] hover:text-white bg-[#141F14] hover:bg-[#1A2A1A] rounded-xl border border-[#1F2A1F]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 text-xs font-bold text-black bg-[#22C55E] hover:bg-[#4ADE80] rounded-xl flex items-center gap-1.5"
+            >
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{loading ? 'Salvando...' : 'Salvar Alterações'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditCreativeModal({
+  creative,
+  onClose,
+  onUpdated
+}: {
+  creative: Creative;
+  onClose: () => void;
+  onUpdated: (cr: Creative) => void;
+}) {
+  const { success, error } = useToast();
+  const [title, setTitle] = useState(creative.title || '');
+  const [creativeType, setCreativeType] = useState<Creative['creativeType']>(creative.creativeType || 'vsl');
+  const [hook3s, setHook3s] = useState(creative.hook3s || '');
+  const [cta, setCta] = useState(creative.cta || '');
+  const [script, setScript] = useState(creative.script || '');
+  const [notes, setNotes] = useState(creative.notes || '');
+  const [tagsInput, setTagsInput] = useState((creative.tags || []).join(', '));
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      error('O criativo precisa de um título.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const tags = tagsInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const updated = await api.updateCreative(creative.id, {
+        title: title.trim(),
+        creativeType,
+        hook3s: hook3s.trim() || undefined,
+        cta: cta.trim() || undefined,
+        script: script.trim() || undefined,
+        notes: notes.trim() || undefined,
+        tags
+      });
+
+      if (updated) {
+        onUpdated(updated);
+        success('Análise e dados do criativo atualizados com sucesso!');
+        onClose();
+      }
+    } catch (err: any) {
+      error(err.message || 'Erro ao atualizar criativo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-[#0D120D] border border-[#1F2A1F] rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 text-[#22C55E]/70 hover:text-[#22C55E]">
+          <X className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 mb-1">
+          <Edit className="w-4 h-4 text-[#22C55E]" />
+          <h3 className="text-base font-bold text-white">Editar Criativo (Análise & Copy)</h3>
+        </div>
+        <p className="text-xs text-[#22C55E]/70 mb-4">
+          Ajuste o gancho, roteiro, copy e observações deste criativo salvo.
+        </p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 text-xs">
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Título do Criativo *</label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-sm text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Tipo de Criativo</label>
+              <select
+                value={creativeType}
+                onChange={(e) => setCreativeType(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              >
+                <option value="vsl">VSL (Vídeo de Vendas)</option>
+                <option value="ugc">UGC (Depoimento Real)</option>
+                <option value="depoimento">Depoimento em Vídeo</option>
+                <option value="imagem_estatica">Imagem Estática</option>
+                <option value="carrossel">Carrossel</option>
+                <option value="print_anuncio">Print de Anúncio</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[#22C55E] font-semibold mb-1">Tags (separadas por vírgula)</label>
+              <input
+                type="text"
+                placeholder="Ex.: Gancho Forte, TikTok, Escala"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Gancho dos Primeiros 3 Segundos (Hook)</label>
+            <input
+              type="text"
+              placeholder="O que é dito ou exibido no início para reter a atenção"
+              value={hook3s}
+              onChange={(e) => setHook3s(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Chamada para Ação (CTA)</label>
+            <input
+              type="text"
+              placeholder="Ex.: Toque em Saiba Mais e garanta seu cupom"
+              value={cta}
+              onChange={(e) => setCta(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Roteiro / Transcrição da Copy</label>
+            <textarea
+              rows={4}
+              placeholder="Cole a transcrição ou texto completo da copy do criativo..."
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white font-mono focus:border-[#22C55E] focus:outline-none leading-relaxed"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[#22C55E] font-semibold mb-1">Observações de Modelagem</label>
+            <textarea
+              rows={2}
+              placeholder="O que funcionou, tom de voz, edição, ideias de variações..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl bg-[#050805] border border-[#1F2A1F] text-xs text-white focus:border-[#22C55E] focus:outline-none leading-relaxed"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-[#1F2A1F]">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-[#22C55E] hover:text-white bg-[#141F14] hover:bg-[#1A2A1A] rounded-xl border border-[#1F2A1F]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 text-xs font-bold text-black bg-[#22C55E] hover:bg-[#4ADE80] rounded-xl flex items-center gap-1.5"
+            >
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{loading ? 'Salvando...' : 'Salvar Alterações'}</span>
             </button>
           </div>
         </form>
