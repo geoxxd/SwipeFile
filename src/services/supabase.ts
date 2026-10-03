@@ -9,9 +9,12 @@ export const isSupabaseConfigured = (): boolean => {
     envUrl &&
     typeof envUrl === 'string' &&
     envUrl.startsWith('http') &&
+    !envUrl.includes('your-project') &&
+    !envUrl.includes('example') &&
     envKey &&
     typeof envKey === 'string' &&
-    envKey.length > 10
+    envKey.length > 20 &&
+    !envKey.includes('your-anon-key')
   );
 };
 

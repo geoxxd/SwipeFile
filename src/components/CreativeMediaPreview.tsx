@@ -52,9 +52,10 @@ export function CreativeMediaPreview({
       ) : isVideo && creative.fileUrl && !creative.fileUrl.startsWith('http://') && !creative.fileUrl.includes('youtube') && !creative.fileUrl.includes('drive.google') ? (
         <video
           src={creative.fileUrl}
-          preload="metadata"
+          preload="none"
           muted
           playsInline
+          onError={() => setHasImgError(true)}
           className={`${className} pointer-events-none`}
         />
       ) : (

@@ -84,7 +84,16 @@ function MainApp() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [isOwner, setIsOwner] = useState<boolean>(true); // Default true for owner experience
-  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingInitial, setLoadingInitial] = useState(() => {
+    try {
+      const cached = localStorage.getItem('swipe_cached_offers');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch {}
+    return true;
+  });
 
   // Filters passed from Dashboard to Library
   const [libraryFilters, setLibraryFilters] = useState<Record<string, any>>({});
@@ -92,13 +101,21 @@ function MainApp() {
   // Modals
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
+  // Safety fallback: never trap user on loading screen
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setLoadingInitial(false);
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Load all data
   const loadData = useCallback(async () => {
     try {
       const [settingsRes, offersRes, collectionsRes, statsRes] = await Promise.all([
         api.getSettings().catch(() => DEFAULT_SETTINGS),
         api.getOffers().catch((err) => {
-          console.error('Falha ao sincronizar ofertas do Supabase:', err);
+          console.warn('Aviso sincronização:', err?.message || err);
           return null;
         }),
         api.getCollections().catch(() => []),
@@ -125,7 +142,7 @@ function MainApp() {
         setCurrentView('offer-detail');
       }
     } catch (err: any) {
-      console.error('Error initializing app:', err);
+      console.warn('Inicialização dados:', err?.message || err);
     } finally {
       setLoadingInitial(false);
     }
