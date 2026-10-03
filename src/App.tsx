@@ -312,6 +312,25 @@ function MainApp() {
 
         {/* Dynamic View Display */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {typeof window !== 'undefined' &&
+            window.location.hostname.includes('netlify.app') &&
+            !api.isUsingSupabase() && (
+              <div className="mb-5 p-3.5 rounded-xl bg-[#0F170F] border border-[#22C55E]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
+                <div className="flex items-center gap-2.5 text-[#4ADE80]">
+                  <span className="w-2 h-2 rounded-full bg-[#EAB308] animate-pulse"></span>
+                  <span>
+                    <strong>Ambiente Netlify (Modo Local):</strong> Seus dados estão salvos neste navegador. Para sincronizar na nuvem permanente, conecte seu Supabase.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setCurrentView('settings')}
+                  className="px-3 py-1.5 rounded-lg bg-[#22C55E] text-black font-bold text-xs hover:bg-[#16A34A] transition-colors shrink-0 self-start sm:self-auto"
+                >
+                  Conectar Supabase
+                </button>
+              </div>
+            )}
+
           {currentView === 'dashboard' && (
             <DashboardView
               offers={offers}

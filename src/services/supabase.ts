@@ -1,31 +1,85 @@
 import { createClient } from '@supabase/supabase-js';
 import { Offer, Collection, AppSettings, FunnelStep, ValidationLog, Competitor, Creative } from '../types/index.ts';
 
-const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+export const getSupabaseConfig = () => {
+  const customUrl = typeof window !== 'undefined' ? localStorage.getItem('swipe_supabase_url') || '' : '';
+  const customKey = typeof window !== 'undefined' ? localStorage.getItem('swipe_supabase_anon_key') || '' : '';
 
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(
-    envUrl &&
-    typeof envUrl === 'string' &&
-    envUrl.startsWith('http') &&
-    !envUrl.includes('your-project') &&
-    !envUrl.includes('example') &&
-    envKey &&
-    typeof envKey === 'string' &&
-    envKey.length > 20 &&
-    !envKey.includes('your-anon-key')
+  const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+  const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+
+  const url = (customUrl || envUrl || '').trim();
+  const key = (customKey || envKey || '').trim();
+
+  const isConfigured = Boolean(
+    url &&
+    typeof url === 'string' &&
+    url.startsWith('http') &&
+    !url.includes('your-project') &&
+    !url.includes('example') &&
+    key &&
+    typeof key === 'string' &&
+    key.length > 20 &&
+    !key.includes('your-anon-key')
   );
+
+  return { url, key, isConfigured };
 };
 
-export const supabase = isSupabaseConfigured()
-  ? createClient(envUrl, envKey, {
+export const isSupabaseConfigured = (): boolean => {
+  return getSupabaseConfig().isConfigured;
+};
+
+let _supabaseClient: any = null;
+let _currentUrl = '';
+let _currentKey = '';
+
+export const getSupabaseClient = () => {
+  const { url, key, isConfigured } = getSupabaseConfig();
+  if (!isConfigured) return null;
+  if (!_supabaseClient || _currentUrl !== url || _currentKey !== key) {
+    _supabaseClient = createClient(url, key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true
       }
-    })
-  : null;
+    });
+    _currentUrl = url;
+    _currentKey = key;
+  }
+  return _supabaseClient;
+};
+
+export const saveCustomSupabaseConfig = (url: string, key: string) => {
+  if (url && url.trim()) {
+    localStorage.setItem('swipe_supabase_url', url.trim());
+  } else {
+    localStorage.removeItem('swipe_supabase_url');
+  }
+
+  if (key && key.trim()) {
+    localStorage.setItem('swipe_supabase_anon_key', key.trim());
+  } else {
+    localStorage.removeItem('swipe_supabase_anon_key');
+  }
+
+  _supabaseClient = null;
+  _currentUrl = '';
+  _currentKey = '';
+};
+
+export const supabase = {
+  from: (...args: any[]) => {
+    const client = getSupabaseClient();
+    if (!client) throw new Error('Supabase client não inicializado.');
+    return client.from(...args);
+  },
+  get storage() {
+    const client = getSupabaseClient();
+    if (!client) throw new Error('Supabase storage não inicializado.');
+    return client.storage;
+  }
+} as any;
 
 // Helpers to map camelCase <-> snake_case for Supabase
 function mapOfferFromDb(row: any, nested?: {
@@ -352,7 +406,7 @@ export const supabaseService = {
       // Tabela opcional não criada
     }
 
-    let offers = offersData.map((row) =>
+    let offers = offersData.map((row: any) =>
       mapOfferFromDb(row, {
         creatives: creativesByOffer[row.id] || [],
         competitors: competitorsByOffer[row.id] || [],
@@ -364,10 +418,10 @@ export const supabaseService = {
     if (params?.search) {
       const s = String(params.search).toLowerCase();
       offers = offers.filter(
-        (o) =>
+        (o: Offer) =>
           o.name.toLowerCase().includes(s) ||
           o.niche.toLowerCase().includes(s) ||
-          o.tags.some((t) => t.toLowerCase().includes(s))
+          o.tags.some((t: string) => t.toLowerCase().includes(s))
       );
     }
 

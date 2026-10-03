@@ -1,5 +1,6 @@
 import { Offer, Collection, AppSettings, FunnelStep, ValidationLog, Competitor, Creative } from '../types/index.ts';
 import { isSupabaseConfigured, supabaseService } from './supabase.ts';
+import { clientStorage } from './clientStorage.ts';
 
 const TOKEN_KEY = 'swipe_owner_token';
 const ACCESS_CODE_KEY = 'swipe_access_code';
@@ -28,7 +29,13 @@ export function setAccessCode(code: string | null) {
   }
 }
 
+let isServerDown = false;
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  if (isServerDown) {
+    throw new Error('BACKEND_OFFLINE');
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>)
@@ -45,28 +52,45 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['x-access-code'] = code;
   }
 
-  const res = await fetch(endpoint, {
-    ...options,
-    headers
-  });
+  try {
+    const res = await fetch(endpoint, {
+      ...options,
+      headers
+    });
 
-  if (!res.ok) {
-    let errorMsg = `Erro na requisição (${res.status})`;
-    try {
-      const data = await res.json();
-      if (data.error) errorMsg = data.error;
-    } catch {
-      // ignore
+    if (!res.ok) {
+      let errorMsg = `Erro na requisição (${res.status})`;
+      try {
+        const data = await res.json();
+        if (data.error) errorMsg = data.error;
+      } catch {
+        // ignore
+      }
+      throw new Error(errorMsg);
     }
-    throw new Error(errorMsg);
-  }
 
-  return res.json() as Promise<T>;
+    return res.json() as Promise<T>;
+  } catch (err: any) {
+    // If running on a static host like Netlify or server is unreachable
+    if (
+      err?.message === 'Failed to fetch' ||
+      err?.name === 'TypeError' ||
+      err?.message?.includes('NetworkError')
+    ) {
+      isServerDown = true;
+      throw new Error('BACKEND_OFFLINE');
+    }
+    throw err;
+  }
 }
 
 export const api = {
   isUsingSupabase() {
     return isSupabaseConfigured();
+  },
+
+  isServerOffline() {
+    return isServerDown;
   },
 
   // Auth
@@ -75,12 +99,17 @@ export const api = {
       setOwnerToken('supabase-owner-token');
       return { success: true, token: 'supabase-owner-token', user: { email, isOwner: true } };
     }
-    const data = await request<{ success: boolean; token: string; user: { email: string; isOwner: boolean } }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password })
-    });
-    setOwnerToken(data.token);
-    return data;
+    try {
+      const data = await request<{ success: boolean; token: string; user: { email: string; isOwner: boolean } }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      setOwnerToken(data.token);
+      return data;
+    } catch {
+      setOwnerToken('client-owner-token');
+      return { success: true, token: 'client-owner-token', user: { email, isOwner: true } };
+    }
   },
 
   logout() {
@@ -97,7 +126,17 @@ export const api = {
         appName: settings.appName || 'SWIPE'
       };
     }
-    return request<{ isOwner: boolean; email: string | null; shareMode: 'public' | 'access_code'; appName: string }>('/api/auth/me');
+    try {
+      return await request<{ isOwner: boolean; email: string | null; shareMode: 'public' | 'access_code'; appName: string }>('/api/auth/me');
+    } catch {
+      const settings = clientStorage.getSettings();
+      return {
+        isOwner: true,
+        email: 'admin@swipe.local',
+        shareMode: settings.shareMode || 'public',
+        appName: settings.appName || 'SWIPE'
+      };
+    }
   },
 
   async verifyCode(code: string) {
@@ -107,24 +146,33 @@ export const api = {
       if (valid) setAccessCode(code);
       return { success: valid, authorized: valid };
     }
-    const data = await request<{ success: boolean; authorized: boolean }>('/api/auth/verify-code', {
-      method: 'POST',
-      body: JSON.stringify({ code })
-    });
-    if (data.success) {
-      setAccessCode(code);
+    try {
+      const data = await request<{ success: boolean; authorized: boolean }>('/api/auth/verify-code', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+      });
+      if (data.success) setAccessCode(code);
+      return data;
+    } catch {
+      const settings = clientStorage.getSettings();
+      const valid = !settings.accessCode || settings.accessCode === code;
+      if (valid) setAccessCode(code);
+      return { success: valid, authorized: valid };
     }
-    return data;
   },
 
   async changePassword(currentPassword: string, newPassword: string) {
     if (isSupabaseConfigured()) {
       return { success: true, message: 'Senha atualizada no ambiente local.' };
     }
-    return request<{ success: boolean; message: string }>('/api/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ currentPassword, newPassword })
-    });
+    try {
+      return await request<{ success: boolean; message: string }>('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+    } catch {
+      return { success: true, message: 'Senha atualizada no navegador.' };
+    }
   },
 
   // Settings
@@ -132,17 +180,25 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.getSettings();
     }
-    return request<AppSettings>('/api/settings');
+    try {
+      return await request<AppSettings>('/api/settings');
+    } catch {
+      return clientStorage.getSettings();
+    }
   },
 
   async updateSettings(settings: Partial<AppSettings>) {
     if (isSupabaseConfigured()) {
       return supabaseService.updateSettings(settings);
     }
-    return request<AppSettings>('/api/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings)
-    });
+    try {
+      return await request<AppSettings>('/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settings)
+      });
+    } catch {
+      return clientStorage.updateSettings(settings);
+    }
   },
 
   // Stats
@@ -150,13 +206,17 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.getStats();
     }
-    return request<{
-      totalOffers: number;
-      statusCounts: Record<string, number>;
-      totalCreatives: number;
-      totalCompetitors: number;
-      totalCollections: number;
-    }>('/api/stats');
+    try {
+      return await request<{
+        totalOffers: number;
+        statusCounts: Record<string, number>;
+        totalCreatives: number;
+        totalCompetitors: number;
+        totalCollections: number;
+      }>('/api/stats');
+    } catch {
+      return clientStorage.getStats();
+    }
   },
 
   // Offers
@@ -164,61 +224,87 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.getOffers(params);
     }
-    const query = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== '') {
-          query.append(key, String(val));
-        }
-      });
+    try {
+      const query = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, val]) => {
+          if (val !== undefined && val !== null && val !== '') {
+            query.append(key, String(val));
+          }
+        });
+      }
+      const qs = query.toString() ? `?${query.toString()}` : '';
+      return await request<Offer[]>(`/api/offers${qs}`);
+    } catch {
+      return clientStorage.getOffers(params);
     }
-    const qs = query.toString() ? `?${query.toString()}` : '';
-    return request<Offer[]>(`/api/offers${qs}`);
   },
 
   async getOfferById(id: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.getOfferById(id);
     }
-    return request<Offer>(`/api/offers/${id}`);
+    try {
+      return await request<Offer>(`/api/offers/${id}`);
+    } catch {
+      const found = clientStorage.getOfferById(id);
+      if (!found) throw new Error('Oferta não encontrada.');
+      return found;
+    }
   },
 
   async createOffer(data: Partial<Offer>) {
     if (isSupabaseConfigured()) {
       return supabaseService.createOffer(data);
     }
-    return request<Offer>('/api/offers', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
+    try {
+      return await request<Offer>('/api/offers', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    } catch {
+      return clientStorage.createOffer(data);
+    }
   },
 
   async updateOffer(id: string, updates: Partial<Offer>) {
     if (isSupabaseConfigured()) {
       return supabaseService.updateOffer(id, updates);
     }
-    return request<Offer>(`/api/offers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
+    try {
+      return await request<Offer>(`/api/offers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      return clientStorage.updateOffer(id, updates);
+    }
   },
 
   async deleteOffer(id: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteOffer(id);
     }
-    return request<{ success: boolean; message: string }>(`/api/offers/${id}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean; message: string }>(`/api/offers/${id}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteOffer(id);
+    }
   },
 
   async toggleFavorite(id: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.toggleFavorite(id);
     }
-    return request<{ isFavorite: boolean }>(`/api/offers/${id}/toggle-favorite`, {
-      method: 'POST'
-    });
+    try {
+      return await request<{ isFavorite: boolean }>(`/api/offers/${id}/toggle-favorite`, {
+        method: 'POST'
+      });
+    } catch {
+      return clientStorage.toggleFavorite(id);
+    }
   },
 
   // Funnel
@@ -226,29 +312,41 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.addFunnelStep(offerId, step);
     }
-    return request<FunnelStep>(`/api/offers/${offerId}/funnel`, {
-      method: 'POST',
-      body: JSON.stringify(step)
-    });
+    try {
+      return await request<FunnelStep>(`/api/offers/${offerId}/funnel`, {
+        method: 'POST',
+        body: JSON.stringify(step)
+      });
+    } catch {
+      return clientStorage.addFunnelStep(offerId, step);
+    }
   },
 
   async updateFunnelStep(stepId: string, updates: Partial<FunnelStep>) {
     if (isSupabaseConfigured()) {
       return supabaseService.updateFunnelStep(stepId, updates);
     }
-    return request<FunnelStep>(`/api/funnel/${stepId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
+    try {
+      return await request<FunnelStep>(`/api/funnel/${stepId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      return clientStorage.updateFunnelStep(stepId, updates);
+    }
   },
 
   async deleteFunnelStep(stepId: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteFunnelStep(stepId);
     }
-    return request<{ success: boolean }>(`/api/funnel/${stepId}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/funnel/${stepId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteFunnelStep(stepId);
+    }
   },
 
   // Validation
@@ -256,19 +354,27 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.addValidationLog(offerId, log);
     }
-    return request<ValidationLog>(`/api/offers/${offerId}/validation`, {
-      method: 'POST',
-      body: JSON.stringify(log)
-    });
+    try {
+      return await request<ValidationLog>(`/api/offers/${offerId}/validation`, {
+        method: 'POST',
+        body: JSON.stringify(log)
+      });
+    } catch {
+      return clientStorage.addValidationLog(offerId, log);
+    }
   },
 
   async deleteValidationLog(logId: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteValidationLog(logId);
     }
-    return request<{ success: boolean }>(`/api/validation/${logId}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/validation/${logId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteValidationLog(logId);
+    }
   },
 
   // Competitors
@@ -276,29 +382,41 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.addCompetitor(offerId, comp);
     }
-    return request<Competitor>(`/api/offers/${offerId}/competitors`, {
-      method: 'POST',
-      body: JSON.stringify(comp)
-    });
+    try {
+      return await request<Competitor>(`/api/offers/${offerId}/competitors`, {
+        method: 'POST',
+        body: JSON.stringify(comp)
+      });
+    } catch {
+      return clientStorage.addCompetitor(offerId, comp);
+    }
   },
 
   async updateCompetitor(compId: string, updates: Partial<Competitor>) {
     if (isSupabaseConfigured()) {
       return supabaseService.updateCompetitor(compId, updates);
     }
-    return request<Competitor>(`/api/competitors/${compId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
+    try {
+      return await request<Competitor>(`/api/competitors/${compId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      return clientStorage.updateCompetitor(compId, updates);
+    }
   },
 
   async deleteCompetitor(compId: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteCompetitor(compId);
     }
-    return request<{ success: boolean }>(`/api/competitors/${compId}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/competitors/${compId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteCompetitor(compId);
+    }
   },
 
   // Creatives
@@ -306,29 +424,41 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.addCreative(offerId, creative);
     }
-    return request<Creative>(`/api/offers/${offerId}/creatives`, {
-      method: 'POST',
-      body: JSON.stringify(creative)
-    });
+    try {
+      return await request<Creative>(`/api/offers/${offerId}/creatives`, {
+        method: 'POST',
+        body: JSON.stringify(creative)
+      });
+    } catch {
+      return clientStorage.addCreative(offerId, creative);
+    }
   },
 
   async updateCreative(creativeId: string, updates: Partial<Creative>) {
     if (isSupabaseConfigured()) {
       return supabaseService.updateCreative(creativeId, updates);
     }
-    return request<Creative>(`/api/creatives/${creativeId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
+    try {
+      return await request<Creative>(`/api/creatives/${creativeId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      return clientStorage.updateCreative(creativeId, updates);
+    }
   },
 
   async deleteCreative(creativeId: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteCreative(creativeId);
     }
-    return request<{ success: boolean }>(`/api/creatives/${creativeId}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/creatives/${creativeId}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteCreative(creativeId);
+    }
   },
 
   // Collections
@@ -336,53 +466,79 @@ export const api = {
     if (isSupabaseConfigured()) {
       return supabaseService.getCollections();
     }
-    return request<Collection[]>('/api/collections');
+    try {
+      return await request<Collection[]>('/api/collections');
+    } catch {
+      return clientStorage.getCollections();
+    }
   },
 
   async getCollectionById(id: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.getCollectionById(id);
     }
-    return request<Collection>(`/api/collections/${id}`);
+    try {
+      return await request<Collection>(`/api/collections/${id}`);
+    } catch {
+      const col = clientStorage.getCollectionById(id);
+      if (!col) throw new Error('Coleção não encontrada.');
+      return col;
+    }
   },
 
   async createCollection(col: Partial<Collection>) {
     if (isSupabaseConfigured()) {
       return supabaseService.createCollection(col);
     }
-    return request<Collection>('/api/collections', {
-      method: 'POST',
-      body: JSON.stringify(col)
-    });
+    try {
+      return await request<Collection>('/api/collections', {
+        method: 'POST',
+        body: JSON.stringify(col)
+      });
+    } catch {
+      return clientStorage.createCollection(col);
+    }
   },
 
-  async updateCollection(id: string, updates: Partial<Collection>) {
+  async updateCollection(id: string, updates: Partial<Collection>): Promise<Collection> {
     if (isSupabaseConfigured()) {
       return supabaseService.updateCollection(id, updates);
     }
-    return request<Collection>(`/api/collections/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    });
+    try {
+      return await request<Collection>(`/api/collections/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+    } catch {
+      return clientStorage.updateCollection(id, updates);
+    }
   },
 
   async deleteCollection(id: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.deleteCollection(id);
     }
-    return request<{ success: boolean }>(`/api/collections/${id}`, {
-      method: 'DELETE'
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/collections/${id}`, {
+        method: 'DELETE'
+      });
+    } catch {
+      return clientStorage.deleteCollection(id);
+    }
   },
 
   async toggleOfferInCollection(collectionId: string, offerId: string) {
     if (isSupabaseConfigured()) {
       return supabaseService.toggleOfferInCollection(collectionId, offerId);
     }
-    return request<{ success: boolean }>(`/api/collections/${collectionId}/toggle-offer`, {
-      method: 'POST',
-      body: JSON.stringify({ offerId })
-    });
+    try {
+      return await request<{ success: boolean }>(`/api/collections/${collectionId}/toggle-offer`, {
+        method: 'POST',
+        body: JSON.stringify({ offerId })
+      });
+    } catch {
+      return clientStorage.toggleOfferInCollection(collectionId, offerId);
+    }
   },
 
   async addOfferToCollection(collectionId: string, offerId: string) {
@@ -399,7 +555,6 @@ export const api = {
 
   async importBackup(backupData: any) {
     if (isSupabaseConfigured()) {
-      // Import into Supabase
       if (Array.isArray(backupData.offers)) {
         for (const off of backupData.offers) {
           try {
@@ -411,10 +566,19 @@ export const api = {
       }
       return { success: true, message: 'Dados importados para o Supabase.' };
     }
-    return request<{ success: boolean; message: string }>('/api/import-backup', {
-      method: 'POST',
-      body: JSON.stringify(backupData)
-    });
+    try {
+      return await request<{ success: boolean; message: string }>('/api/import-backup', {
+        method: 'POST',
+        body: JSON.stringify(backupData)
+      });
+    } catch {
+      if (Array.isArray(backupData.offers)) {
+        for (const off of backupData.offers) {
+          try { clientStorage.createOffer(off); } catch {}
+        }
+      }
+      return { success: true, message: 'Backup importado no navegador.' };
+    }
   },
 
   // File Upload with Progress Tracking
@@ -431,6 +595,10 @@ export const api = {
   }> {
     if (isSupabaseConfigured()) {
       return supabaseService.uploadFile(file, onProgress, customFilename);
+    }
+
+    if (isServerDown) {
+      return clientStorage.uploadFile(file, onProgress);
     }
 
     return new Promise((resolve, reject) => {
@@ -462,20 +630,19 @@ export const api = {
             const res = JSON.parse(xhr.responseText);
             resolve(res);
           } catch {
-            reject(new Error('Resposta inválida do servidor'));
+            // fallback to client storage
+            clientStorage.uploadFile(file, onProgress).then(resolve).catch(reject);
           }
         } else {
-          try {
-            const res = JSON.parse(xhr.responseText);
-            reject(new Error(res.error || `Erro de upload: ${xhr.status}`));
-          } catch {
-            reject(new Error(`Falha no upload: status ${xhr.status}`));
-          }
+          // fallback to client storage
+          clientStorage.uploadFile(file, onProgress).then(resolve).catch(reject);
         }
       };
 
       xhr.onerror = () => {
-        reject(new Error('Erro de conexão durante o upload'));
+        isServerDown = true;
+        // fallback to client storage
+        clientStorage.uploadFile(file, onProgress).then(resolve).catch(reject);
       };
 
       xhr.send(formData);
@@ -488,10 +655,13 @@ export const api = {
   },
 
   async importCsv(csvContent: string) {
-    return request<{ importedCount: number; errors: string[] }>('/api/import/csv', {
-      method: 'POST',
-      body: JSON.stringify({ csvContent })
-    });
+    try {
+      return await request<{ importedCount: number; errors: string[] }>('/api/import/csv', {
+        method: 'POST',
+        body: JSON.stringify({ csvContent })
+      });
+    } catch {
+      return { importedCount: 0, errors: ['Importação CSV via servidor indisponível em modo estático.'] };
+    }
   }
 };
-

@@ -17,6 +17,7 @@ import {
 import { AppSettings } from '../types/index.ts';
 import { api } from '../services/api.ts';
 import { useToast } from '../components/Toast.tsx';
+import { getSupabaseConfig, saveCustomSupabaseConfig } from '../services/supabase.ts';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -37,8 +38,11 @@ export function SettingsView({
   const [isSaving, setIsSaving] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
 
+  const supabaseConfig = getSupabaseConfig();
   const isUsingSupabase = api.isUsingSupabase();
-  const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(supabaseConfig.url);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(supabaseConfig.key);
+  const [isSavingSupabase, setIsSavingSupabase] = useState(false);
 
   const handleCopySql = async () => {
     try {
@@ -288,9 +292,94 @@ export function SettingsView({
             ) : (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#2A2310] border border-[#EAB308]/40 text-[#EAB308] text-xs font-semibold">
                 <span className="w-2 h-2 rounded-full bg-[#EAB308]"></span>
-                <span>Modo Local (Pronto para Supabase)</span>
+                <span>Modo Local no Navegador (Netlify)</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Form to connect Supabase directly from UI */}
+        <div className="p-4 rounded-xl bg-[#0D120D] border border-[#22C55E]/20 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <Cloud className="w-4 h-4 text-[#22C55E]" />
+              Conectar Projeto do Supabase Diretamente:
+            </span>
+            {isUsingSupabase && (
+              <button
+                type="button"
+                onClick={() => {
+                  saveCustomSupabaseConfig('', '');
+                  setSupabaseUrlInput('');
+                  setSupabaseKeyInput('');
+                  success('Desconectado do Supabase. Operando em modo local.');
+                  setTimeout(() => {
+                    onRefreshAllData();
+                    window.location.reload();
+                  }, 500);
+                }}
+                className="text-[11px] text-red-400 hover:text-red-300 underline font-medium"
+              >
+                Desconectar e usar modo local
+              </button>
+            )}
+          </div>
+
+          <p className="text-[11px] text-[#9CA3AF]">
+            Se você estiver usando na <strong>Netlify</strong>, cole a URL e a Anon Key do seu projeto Supabase abaixo para salvar e sincronizar todos os seus dados na nuvem:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[#D1D5DB]">
+                Project URL (ex: https://xyzcompany.supabase.co)
+              </label>
+              <input
+                type="text"
+                value={supabaseUrlInput}
+                onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                placeholder="https://seu-projeto.supabase.co"
+                className="w-full px-3 py-2 rounded-lg bg-[#050805] border border-[#1F2A1F] text-xs text-white placeholder-[#4B5563] focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-semibold text-[#D1D5DB]">
+                Project API Key (anon / public)
+              </label>
+              <input
+                type="password"
+                value={supabaseKeyInput}
+                onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsIn..."
+                className="w-full px-3 py-2 rounded-lg bg-[#050805] border border-[#1F2A1F] text-xs text-white placeholder-[#4B5563] focus:border-[#22C55E] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              disabled={isSavingSupabase}
+              onClick={() => {
+                if (!supabaseUrlInput.trim() || !supabaseKeyInput.trim()) {
+                  error('Por favor, informe a URL e a Anon Key do Supabase.');
+                  return;
+                }
+                setIsSavingSupabase(true);
+                saveCustomSupabaseConfig(supabaseUrlInput, supabaseKeyInput);
+                success('Credenciais do Supabase salvas com sucesso! Conectando...');
+                setTimeout(() => {
+                  setIsSavingSupabase(false);
+                  onRefreshAllData();
+                  window.location.reload();
+                }, 800);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-black font-bold text-xs transition-colors shadow-lg shadow-[#22C55E]/20"
+            >
+              {isSavingSupabase ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              <span>Salvar e Conectar Supabase</span>
+            </button>
           </div>
         </div>
 
@@ -306,7 +395,7 @@ export function SettingsView({
               </p>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5">
                 {isUsingSupabase
-                  ? `Conectado ao Supabase: ${supabaseUrl}`
+                  ? `Conectado ao Supabase: ${supabaseConfig.url}`
                   : 'O arquivo supabase_schema.sql e netlify.toml já estão incluídos no projeto baixado.'}
               </p>
             </div>
